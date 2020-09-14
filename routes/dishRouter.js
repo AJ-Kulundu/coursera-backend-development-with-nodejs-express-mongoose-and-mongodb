@@ -19,7 +19,7 @@ dishRouter
     },(err) => next(err))
     .catch((err) => next(err));
 })
-.post('/',authenticate.verifyUser,(req, res, next) => {
+.post('/',authenticate.verifyUser,authenticate.verifyAdmin,(req, res, next) => {
     Dishes.create(req.body)
     .then((dish) => {
         console.log('Dish Created ', dish);
@@ -35,7 +35,7 @@ dishRouter
     res.statusCode = 403;
     res.end('PUT operation not supported on /dishes');
 })
-.delete('/',authenticate.verifyUser,(req, res, next) => {
+.delete('/',authenticate.verifyUser,authenticate.verifyAdmin,(req, res, next) => {
    Dishes.remove({})
    .then((resp) =>{
        res.statusCode = 200;
@@ -57,7 +57,7 @@ dishRouter
   res.statusCode= 403;
   res.end('POST operation not supported on /dishes/'+req.params.dishId);
 })
-.put('/:dishId',authenticate.verifyUser,(req,res,next) => {
+.put('/:dishId',authenticate.verifyUser,authenticate.verifyAdmin,(req,res,next) => {
    Dishes.findByIdAndUpdate(req.params.dishId,{$set:req.body},{new:true})
    .then((dish) => {
        res.statusCode = 200;
@@ -66,7 +66,7 @@ dishRouter
    }, (err ) => next(err))
    .catch((err) => next(err));
 })
-.delete('/:dishId',authenticate.verifyUser,(req,res,next) => {
+.delete('/:dishId',authenticate.verifyUser,authenticate.verifyAdmin,(req,res,next) => {
     Dishes.findByIdAndRemove(req.params.dishId)
     .then((resp) => {
         res.statusCode = 200;
@@ -120,7 +120,7 @@ dishRouter
     res.end('PUT operation not supported on /dishes/'
         + req.params.dishId + '/comments');
 })
-.delete('/:dishId/comments',authenticate.verifyUser,(req,res,next) =>{
+.delete('/:dishId/comments',authenticate.verifyUser,authenticate.verifyAdmin,(req,res,next) =>{
     Dishes.findById(req.params.dishId)
     .then((dish) => {
         if (dish != null){
@@ -171,6 +171,11 @@ dishRouter
     Dishes.findById(req.params.dishId)
     .then((dish) => {
         if (dish != null && dish.comments.id(req.params.commentId) != null) {
+            if(!req.user._id.equals(dish.comments.id(req.params.commentId).author)){
+                    err = new Error('You are not authorized to perform this operation');
+                    err.status = 403;
+                    return next(err);
+            }
             if (req.body.rating) {
                 dish.comments.id(req.params.commentId).rating = req.body.rating;
             }
@@ -186,8 +191,8 @@ dishRouter
                     res.setHeader('Content-Type', 'application/json');
                     res.json(dish);  
                 })              
-            }, (err) => next(err));
-        }
+            }, (err) => next(err)); 
+    }
         else if (dish == null) {
             err = new Error('Dish ' + req.params.dishId + ' not found');
             err.status = 404;
@@ -205,7 +210,11 @@ dishRouter
     Dishes.findById(req.params.dishId)
     .then((dish) => {
         if (dish != null && dish.comments.id(req.params.commentId) != null) {
-
+            if(!req.user._id.equals(dish.comments.id(req.params.commentId).author)){
+                err = new Error('You are not authorized to perform this operation');
+                err.status = 403;
+                return next(err);
+        }
             dish.comments.id(req.params.commentId).remove();
             dish.save()
             .then((dish) => {
